@@ -119,7 +119,7 @@ void client::client_connect(string instruction){
     }
 
     int len;
-    if(instruction.find(':')!=string::npos){
+    if(instruction.find(' ')!=string::npos){
         len=instruction.find(':')-1;
     }else{
         cout<<"[Error] please input the right IP!\n";
@@ -127,7 +127,7 @@ void client::client_connect(string instruction){
     }
 
     string IP=instruction.substr(1,len);
-    int port=stoi(instruction.substr(len+2,instruction.length()-1-instruction.find(':')));
+    int port=stoi(instruction.substr(len+2,instruction.length()-1-instruction.find(' ')));
 
     // request for a socket under TCP protocol
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -146,6 +146,7 @@ void client::client_connect(string instruction){
     int res = connect(socket_fd,(sockaddr*)&serverAddr,sizeof(serverAddr));
     if(res<0) {
         cout << "[Error] connection failed!\n";
+        socket_fd=-1;
         return;
     }
     connection=1;
@@ -234,17 +235,21 @@ void client::exitcli() {
 }
 
 void client::send_message(string instruction) {
+    if(socket_fd==-1){
+        cout<<"[Error] server does not connected!\n";
+        return;
+    }
     int len;
-    if(instruction.find(':')==string::npos){
+    if(instruction.find(' ')==string::npos){
         cout<<"[Error] please input the right instruction!\n";
         return;
     }
-    instruction.replace(instruction.find(":"),1,"#");	
-    if(instruction.find(':')==string::npos){
+    instruction.replace(instruction.find(" "),1,"#");	
+    if(instruction.find(' ')==string::npos){
         cout<<"[Error] please input the right instruction!\n";
         return;
     }
-    instruction.replace(instruction.find(":"),1,"$");
+    instruction.replace(instruction.find(" "),1,"$");
     char buffer[MAXBUFFER] = {0};
     buffer[0] = SEND;
     sprintf(buffer + strlen(buffer), "%s", instruction.c_str());
