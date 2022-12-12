@@ -56,7 +56,7 @@ public:
     void get_time();
     void get_name();
     void get_cli();
-    void send_message(int);
+    void send_message(string);
     void exitcli();
 private:
     int msgqid; // identifier of the message queue
@@ -105,7 +105,7 @@ void client::client_help() {
         <<"[t] get time of the server\n"
         <<"[n] get name of the server\n"
         <<"[l] get active clients list\n"
-        <<"[s] send messages [IP]:[port]:[message]\n"
+        <<"[s] send messages [IP]:[port]:[message]\n"//IP # port $ message
         <<"[e] exit\n"
         <<"[h] help list\n"
         <<"------------------\n"
@@ -123,6 +123,7 @@ void client::client_connect(string instruction){
         len=instruction.find(':')-1;
     }else{
         cout<<"[Error] please input the right IP!\n";
+        return;
     }
 
     string IP=instruction.substr(1,len);
@@ -188,8 +189,15 @@ void client::get_cli() {
     MSG climsg;
     send(socket_fd,&buffer,sizeof(buffer),0);
     msgrcv(msgqid,&climsg,MAXBUFFER,(long)CLILIST,0);
-
-    // deal with the format of client list
+    string list(climsg.mtext);
+    cout<<"[Info] Client list: "<<"\n";
+    string temp;
+    while(list.find('#')!=string::npos){
+        temp=list.substr(0,list.find('#'));
+        replace(temp.begin(),temp.end(),'|',':');
+        cout<<temp<<"\n";
+        list=list.substr(list.find('#')+1,list.length()-1-list.find('#'));
+    }
 }
 
     void client::quit() {
@@ -225,8 +233,25 @@ void client::exitcli() {
     return;
 }
 
-void client::send_message(int) {
-
+void client::send_message(string instruction) {
+    int len;
+    if(instruction.find(':')==string::npos){
+        cout<<"[Error] please input the right instruction!\n";
+        return;
+    }
+    instruction.replace(instruction.find(":"),1,"#");	
+    if(instruction.find(':')==string::npos){
+        cout<<"[Error] please input the right instruction!\n";
+        return;
+    }
+    instruction.replace(instruction.find(":"),1,"$");
+    char buffer[MAXBUFFER] = {0};
+    buffer[0] = SEND;
+    sprintf(buffer + strlen(buffer), "%s", instruction.c_str());
+    send(socket_fd,&buffer,sizeof(buffer), 0);
+    MSG statusmsg;
+    msgrcv(msgqid, &statusmsg, MAXBUFFER,(long)SEND, 0);
+    cout<<statusmsg.mtext<<endl;
 }
 
 int main(){
@@ -260,7 +285,7 @@ int main(){
                 cli.get_cli();
                 break;
             case 's':
-                // cli.send_message(instruction);
+                cli.send_message(instruction);
                 break;
             case 'e':
                 cli.exitcli();
