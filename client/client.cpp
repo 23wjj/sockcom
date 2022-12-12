@@ -127,7 +127,7 @@ void client::client_connect(string instruction){
     }
 
     string IP=instruction.substr(1,len);
-    int port=stoi(instruction.substr(len+1,instruction.length()-1-instruction.find(':')));
+    int port=stoi(instruction.substr(len+2,instruction.length()-1-instruction.find(':')));
 
     // request for a socket under TCP protocol
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
