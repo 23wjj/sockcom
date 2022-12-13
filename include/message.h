@@ -13,6 +13,7 @@
 #define CLILIST 'C'
 #define SEND 'D'
 #define CLOSE 'E'
+#define GREET 'G'
 
 typedef struct _msg
 {

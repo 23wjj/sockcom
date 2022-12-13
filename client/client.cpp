@@ -126,7 +126,7 @@ void client::client_connect(string instruction){
         return;
     }
 
-    string IP=instruction.substr(1,len);
+    string IP=instruction.substr(2,len-1);
     int port=stoi(instruction.substr(len+2,instruction.length()-1-instruction.find(' ')));
 
     // request for a socket under TCP protocol
@@ -140,6 +140,8 @@ void client::client_connect(string instruction){
     // initialize local information
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(port);
+    // cout<<port<<endl;
+    // cout<<IP.c_str()<<endl;
     serverAddr.sin_addr.s_addr = inet_addr(IP.c_str());
 
     // connect to server
@@ -244,15 +246,17 @@ void client::send_message(string instruction) {
         cout<<"[Error] please input the right instruction!\n";
         return;
     }
-    instruction.replace(instruction.find(" "),1,"#");	
+    instruction.replace(instruction.find(":"),1,"#");
     if(instruction.find(' ')==string::npos){
         cout<<"[Error] please input the right instruction!\n";
         return;
     }
-    instruction.replace(instruction.find(" "),1,"$");
+    instruction.replace(instruction.find(":"),1,"$");
+    string tmp=instruction.substr(2,instruction.length()-2);
+    cout<<tmp;
     char buffer[MAXBUFFER] = {0};
     buffer[0] = SEND;
-    sprintf(buffer + strlen(buffer), "%s", instruction.c_str());
+    sprintf(buffer + strlen(buffer), "%s", tmp.c_str());
     send(socket_fd,&buffer,sizeof(buffer), 0);
     MSG statusmsg;
     msgrcv(msgqid, &statusmsg, MAXBUFFER,(long)SEND, 0);

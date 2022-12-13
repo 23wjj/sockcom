@@ -62,7 +62,8 @@ server::~server()
 // thread to send and recv information with the client through socket handler
 void* server::interact_handler(void* connfd){
     // send hello message to the client
-    char str[]="hello\n";
+    char str[]="thello\n";
+    str[0]=GREET;
     send(*((int*)connfd),str,strlen(str),0);
 
     // create buffer to store request message from the client
@@ -130,6 +131,7 @@ void* server::interact_handler(void* connfd){
                 cout<<"[Request] "<<*(int*)connfd<<" send message to client "<<ip<<":"<<port<<"\n";
                 int sock_fd=-1; // to store the target client's socket
                 // find the target client in the client_list
+                cout<<ip<<":"<<port<<endl;
                 for(auto ite=cli_list.begin();ite!=cli_list.end();ite++){
                     if(ite->second.first==ip&&ite->second.second==port){
                         sock_fd=ite->first;
