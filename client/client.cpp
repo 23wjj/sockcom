@@ -78,13 +78,16 @@ void* client::interact_handler(void* sockfd) {
     key_t ipc_key = ftok("./",2022);
     int msqid=msgget(ipc_key,IPC_CREAT|0666);
     int len;
+    // create buffer to store receive message from the server
     char buffer[MAXBUFFER];
 
     // waiting for the server
     while (1)
     {
+        // clear the buffer
         memset(buffer, 0, MAXBUFFER);
         len=recv(*((int*)sockfd), buffer, MAXBUFFER, 0);
+        //receive bytes from server
         if(len){
             cout<<"[Receive] recv successful! "<<len<<" bytes recv\n";
             if(buffer[0]==TRANS)
@@ -156,6 +159,8 @@ void client::client_connect(string instruction){
     }
     connection=1;
     cout<<"[Success] connection has established!\n";
+    // create a thread to interact with the server
+    // pass the socket handler to the child thread
     pthread_create(&interact_thread, nullptr, interact_handler, &socket_fd);
 }
 
@@ -164,11 +169,15 @@ void client::get_time() {
         cout<<"[Error]client hasn't connected!\n";
         return;
     }
+    // create buffer to store message send to the server
     char buffer=TIME;
     MSG timemsg;
+    //send message to server
     send(socket_fd,&buffer, sizeof(buffer), 0);
+    //receive message from server
     msgrcv(msgqid, &timemsg, MAXBUFFER, (long)TIME, 0);
     time_t time = atol(timemsg.mtext);
+    //print time
     cout<<"[Receive] Server time: "<<ctime(&time);
     return;
 }
@@ -178,10 +187,14 @@ void client::get_name() {
         cout<<"[Error]client hasn't connected!\n";
         return;
     }
+    // create buffer to store message send to the server
     char buffer=NAME;
     MSG namemsg;
+    //send message to server
     send(socket_fd,&buffer,sizeof(buffer),0);
+    //receive message from server
     msgrcv(msgqid,&namemsg,MAXBUFFER,(long)NAME,0);
+    //print time
     cout<<"[Recive] Server name: "<<namemsg.mtext<<"\n";
     return;
 }
@@ -191,13 +204,18 @@ void client::get_cli() {
         cout<<"[Error]client hasn't connected!\n";
         return;
     }
+    // create buffer to store message send to the server
     char buffer=CLILIST;
     MSG climsg;
+    //send message to server
     send(socket_fd,&buffer,sizeof(buffer),0);
+    //receive message from server
     msgrcv(msgqid,&climsg,MAXBUFFER,(long)CLILIST,0);
+    // create buffer to store message send to the server
     string list(climsg.mtext);
     cout<<"[Info] Client list: "<<"\n";
     string temp;
+    //print list of client
     while(list.find('#')!=string::npos){
         temp=list.substr(0,list.find('#'));
         replace(temp.begin(),temp.end(),'|',':');
@@ -206,16 +224,21 @@ void client::get_cli() {
     }
 }
 
-    void client::quit() {
+void client::quit() {
     if(!connection){
         cout<<"[Error]client hasn't connected!\n";
         return;
     }
+    // create buffer to store message send to the server
     char buffer = CLOSE;
+    //send message to server
     send(socket_fd,&buffer,sizeof(buffer),0);
+    //lock 
     pthread_mutex_lock(&mtx);
     pthread_cancel(interact_thread);
+    //unlock
     pthread_mutex_unlock(&mtx);
+    //clear socket_fd and connection
     close(socket_fd);
     socket_fd=-1;
     connection=0;
@@ -230,7 +253,9 @@ void client::exitcli() {
         exit(0);
         return;
     }
+    // create buffer to store message send to the server
     char buffer=CLOSE;
+    //send message to server
     send(socket_fd,&buffer,sizeof(buffer),0);
     close(socket_fd);
     cout<<"[Info] socket: "<<socket_fd<<" closed!\n";
@@ -244,6 +269,7 @@ void client::send_message(string instruction) {
         cout<<"[Error] server does not connected!\n";
         return;
     }
+    //turn the instruction into sending message
     int len;
     if(instruction.find(' ')==string::npos){
         cout<<"[Error] please input the right instruction!\n";
@@ -257,11 +283,14 @@ void client::send_message(string instruction) {
     instruction.replace(instruction.find(":"),1,"$");
     string tmp=instruction.substr(2,instruction.length()-2);
     cout<<tmp;
+    // create buffer to store message send to the server
     char buffer[MAXBUFFER] = {0};
     buffer[0] = SEND;
     sprintf(buffer + strlen(buffer), "%s", tmp.c_str());
+    //send message to server
     send(socket_fd,&buffer,sizeof(buffer), 0);
     MSG statusmsg;
+    //receive from server
     msgrcv(msgqid, &statusmsg, MAXBUFFER,(long)SEND, 0);
 
     cout<<statusmsg.mtext<<endl;
@@ -281,32 +310,33 @@ int main(){
         while(instruction[0]==' '){
             instruction.erase(instruction.begin());
         }
+        // deal with different instructions
         switch (instruction[0]){
             case 'c':
-                cli.client_connect(instruction);
+                cli.client_connect(instruction);//connect to server
                 break;
             case 'q':
-                cli.quit();
+                cli.quit();//quit from client
                 break;
             case 't':
-                cli.get_time();
+                cli.get_time();//get time from server
                 break;
             case 'n':
-                cli.get_name();
+                cli.get_name();//get name from server
                 break;
             case 'l':
-                cli.get_cli();
+                cli.get_cli();//get connected list from server
                 break;
             case 's':
-                cli.send_message(instruction);
+                cli.send_message(instruction);//send message to server
                 break;
-            case 'e':
+            case 'e'://exit client
                 cli.exitcli();
                 break;
-            case 'h':
+            case 'h'://print client help context
                 cli.client_help();
             case '\n':
-                continue;
+                continue;//do nothing
             default:
                 cout<<"[error]please input correct instruction, use [h] to see the option list\n";
         }
