@@ -87,12 +87,15 @@ void* client::interact_handler(void* sockfd) {
         len=recv(*((int*)sockfd), buffer, MAXBUFFER, 0);
         if(len){
             cout<<"[Receive] recv successful! "<<len<<" bytes recv\n";
+            if(buffer[0]==TRANS)
+                cout<<"[Server] ";
             cout<<buffer+1<<"\n";
         }
         MSG message;
         message.mtype = buffer[0];
         strcpy(message.mtext, buffer + 1);
-        msgsnd(msqid, &message, MAXBUFFER, 0);
+        if(message.mtype!=TRANS)
+            msgsnd(msqid, &message, MAXBUFFER, 0);
     }
     return nullptr;
 
@@ -260,6 +263,7 @@ void client::send_message(string instruction) {
     send(socket_fd,&buffer,sizeof(buffer), 0);
     MSG statusmsg;
     msgrcv(msgqid, &statusmsg, MAXBUFFER,(long)SEND, 0);
+
     cout<<statusmsg.mtext<<endl;
 }
 

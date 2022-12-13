@@ -1,5 +1,5 @@
 //
-// Created by User on 2022/9/19.
+// Created by 3200104880 on 2022/9/19.
 //
 
 #ifndef SOCKET_MESSAGE_H
@@ -14,6 +14,7 @@
 #define SEND 'D'
 #define CLOSE 'E'
 #define GREET 'G'
+#define TRANS 'T' // instruction information from server
 
 typedef struct _msg
 {

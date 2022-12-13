@@ -139,6 +139,7 @@ void* server::interact_handler(void* connfd){
                     }
                 }
                 msg[0]=SEND;
+
                 // if cannot find the target client
                 if(sock_fd==-1){
                     cout<<"[Error] target client not in the client list!\n";
@@ -147,6 +148,14 @@ void* server::interact_handler(void* connfd){
                     send(*((int*)connfd),msg,strlen(msg),0);
                     break;
                 }
+                // send instruction first
+                char send_inst[MaxBuffer]={0};
+                send_inst[0]=TRANS; // indicating instruction from server
+                sprintf(send_inst+strlen(send_inst),"%s","Receive retransmit message from client IP:port ");
+                sprintf(send_inst+strlen(send_inst),"%s",ip.c_str());
+                sprintf(send_inst+strlen(send_inst),"%s",":");
+                sprintf(send_inst+strlen(send_inst),"%d",port);
+                send(sock_fd,send_inst,strlen(send_inst),0);
                 // retransmit the data to the target client
                 char send_msg[MaxBuffer]={0};
                 send_msg[0]=SEND;
