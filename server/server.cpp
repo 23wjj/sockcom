@@ -188,6 +188,7 @@ void* server::interact_handler(void* arg){
                 // retransmit the data to the target client
                 char send_msg[MaxBuffer]={0};
                 memset(send_msg,0,MaxBuffer);
+                send_msg[0]=SEND;
                 sprintf(send_msg+strlen(send_msg),"%s",msgcont.c_str());
                 send(sock_fd,send_msg,strlen(send_msg),0);
                 // send information to the source client
