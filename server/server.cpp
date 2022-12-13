@@ -7,6 +7,7 @@
 #include <string>
 #include <cstring>
 #include <cstdio>
+#include <cstdlib>
 #include <sys/msg.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -23,6 +24,14 @@ using namespace  std;
 
 typedef pair<string ,int> ip_port;
 typedef pair<int,ip_port> fd_ip_port; // sock_fd  ip  port
+
+class args{
+public:
+    int connfd;
+    string this_ip;
+    int this_port;
+    args(int cfd,string ip,int port):connfd(cfd),this_ip(ip),this_port(port){}
+};
 
 pthread_mutex_t mtx;
 
@@ -59,85 +68,102 @@ server::~server()
     close(socket_fd);
 }
 
+void send_time(args *param) {
+    // get the time of the server
+    time_t t;
+    time(&t);
+    cout<<"[Request] "<<param->this_ip<<":"<<param->this_port<<" get the time\n";
+    // construct the reply message
+    char msg[MaxBuffer]={0};
+    msg[0]=TIME;
+    sprintf(msg+strlen(msg), "%ld", t);
+    // send the reply to the client
+    send(param->connfd,msg,strlen(msg),0);
+    return;
+}
+
+void send_name(args *param) {
+    // get host name
+    char msg[MaxBuffer]={0};
+    msg[0]=NAME;
+    gethostname(msg+strlen(msg),sizeof(msg)-sizeof(char));
+    cout<<"[Request] "<<param->this_ip<<":"<<param->this_port<<" get the host name\n";
+    // send the reply to the client
+    send(param->connfd,msg,strlen(msg),0);
+    return;
+}
+
+void send_cli(args* param) {
+    // get the client list
+    char msg[MaxBuffer]={0};
+    msg[0]=CLILIST;
+    cout<<"[Request] "<<param->this_ip<<":"<<param->this_port<<" get the client list\n";
+    for(auto ite=cli_list.begin();ite!=cli_list.end();ite++){
+        // get the ip
+        sprintf(msg+strlen(msg),"%s",ite->second.first.c_str());
+        sprintf(msg+strlen(msg),"|");
+        // get the port
+        sprintf(msg+strlen(msg),"%d",ite->second.second);
+        // end one client info
+        sprintf(msg+strlen(msg),"#");
+    }
+    // send the reply to the client
+    send(param->connfd,msg,strlen(msg),0);
+    return;
+}
 // thread to send and recv information with the client through socket handler
-void* server::interact_handler(void* connfd){
+void* server::interact_handler(void* arg){
+    args* param=(args*)arg;
     // send hello message to the client
     char str[]="thello\n";
     str[0]=GREET;
-    send(*((int*)connfd),str,strlen(str),0);
+    send(param->connfd,str,strlen(str),0);
 
     // create buffer to store request message from the client
     char buffer[MaxBuffer];
-    // create buffer to store reply message to the client
-    char msg[MaxBuffer];
-
+    // cout<<param->connfd<<endl;
     // call receive to recv data from client
     while(1){
         // clear the buffer
-        memset(msg,0,MaxBuffer);
         memset(buffer,0,MaxBuffer);
-
-        recv(*((int*)connfd), buffer, MaxBuffer, 0);
-
+        // cout<<param->connfd<<" is running!"<<endl;
+        recv(param->connfd, buffer, MaxBuffer, 0);
         pthread_mutex_lock(&mtx);
         char msg_type = buffer[0];
 
         switch(msg_type){
             case TIME: {
-                // get the time of the server
-                time_t t;
-                time(&t);
-                cout<<"[Request] "<<*(int*)connfd<<" get the time\n";
-                // construct the reply message
-                msg[0]=TIME;
-                sprintf(msg+strlen(msg), "%ld", t);
-                // send the reply to the client
-                send(*((int*)connfd),msg,strlen(msg),0);
+                send_time(param); // send time of the server
                 break;
             }
             case NAME: {
-                // get host name
-                msg[0]=NAME;
-                gethostname(msg+strlen(msg),sizeof(msg)-sizeof(char));
-                cout<<"[Request] "<<*(int*)connfd<<" get the host name\n";
-                // send the reply to the client
-                send(*((int*)connfd),msg,strlen(msg),0);
+                send_name(param); // send name of the server
                 break;
             }
             case CLILIST: {
-                // get the client list
-                msg[0]=CLILIST;
-                cout<<"[Request] "<<*(int*)connfd<<" get the client list\n";
-                for(auto ite=cli_list.begin();ite!=cli_list.end();ite++){
-                    // get the ip
-                    sprintf(msg+strlen(msg),"%s",ite->second.first.c_str());
-                    sprintf(msg+strlen(msg),"|");
-                    // get the port
-                    sprintf(msg+strlen(msg),"%d",ite->second.second);
-                    // end one client info
-                    sprintf(msg+strlen(msg),"#");
-                }
-                // send the reply to the client
-                send(*((int*)connfd),msg,strlen(msg),0);
+                send_cli(param); // send client list connected to the server
                 break;
             }
             case SEND: {
+                char msg[MaxBuffer]={0};
+                memset(msg,0,MaxBuffer);
                 // copy the received info except the msg_type
                 string recvmsg(buffer+1);
                 // check the IP and port
                 string ip=recvmsg.substr(0,recvmsg.find("#"));
                 int port=atoi(recvmsg.substr(recvmsg.find("#")+1,recvmsg.find("$")-recvmsg.find("#")-1).c_str());
                 string msgcont=recvmsg.substr(recvmsg.find("$")+1);
-                cout<<"[Request] "<<*(int*)connfd<<" send message to client "<<ip<<":"<<port<<"\n";
+                cout<<"[Request] "<<param->connfd<<" "<<param->this_ip<<":"<<param->this_port<<" send message to client "<<ip<<":"<<port<<"\n";
                 int sock_fd=-1; // to store the target client's socket
                 // find the target client in the client_list
-                cout<<ip<<":"<<port<<endl;
+                // cout<<ip<<":"<<port<<endl;
                 for(auto ite=cli_list.begin();ite!=cli_list.end();ite++){
                     if(ite->second.first==ip&&ite->second.second==port){
                         sock_fd=ite->first;
                         break;
                     }
                 }
+                // cout<<sock_fd;
                 msg[0]=SEND;
 
                 // if cannot find the target client
@@ -145,25 +171,29 @@ void* server::interact_handler(void* connfd){
                     cout<<"[Error] target client not in the client list!\n";
                     // send the error back to the client
                     sprintf(msg+strlen(msg),"Fail.\n");
-                    send(*((int*)connfd),msg,strlen(msg),0);
+                    send(param->connfd,msg,strlen(msg),0);
                     break;
                 }
                 // send instruction first
                 char send_inst[MaxBuffer]={0};
+                memset(send_inst,0,MaxBuffer);
                 send_inst[0]=TRANS; // indicating instruction from server
                 sprintf(send_inst+strlen(send_inst),"%s","Receive retransmit message from client IP:port ");
-                sprintf(send_inst+strlen(send_inst),"%s",ip.c_str());
+                sprintf(send_inst+strlen(send_inst),"%s",param->this_ip.c_str());
                 sprintf(send_inst+strlen(send_inst),"%s",":");
-                sprintf(send_inst+strlen(send_inst),"%d",port);
+                sprintf(send_inst+strlen(send_inst),"%d",param->this_port);
+                sprintf(send_inst+strlen(send_inst),"%s","\n");
+                cout<<"send to"<<ip<<":"<<port<<" "<<send_inst<<endl;
                 send(sock_fd,send_inst,strlen(send_inst),0);
                 // retransmit the data to the target client
                 char send_msg[MaxBuffer]={0};
-                send_msg[0]=SEND;
+                memset(send_msg,0,MaxBuffer);
                 sprintf(send_msg+strlen(send_msg),"%s",msgcont.c_str());
                 send(sock_fd,send_msg,strlen(send_msg),0);
                 // send information to the source client
                 sprintf(msg+strlen(msg),"%s","Success.\n");
-                send(*((int*)connfd),msg,strlen(msg),0);
+                send(param->connfd,msg,strlen(msg),0);
+                break;
             }
             default:
                 break;
@@ -198,7 +228,9 @@ void server::run(){
         // create a thread to interact with the client's request
         pthread_t interact_thread;
         // pass the socket handler to the child thread
-        pthread_create(&interact_thread, nullptr, interact_handler, &conn_fd);
+        args* tmp=new args(conn_fd,inet_ntoa(client_addr.sin_addr),ntohs(client_addr.sin_port));
+        // cout<<*(tmp->connfd)<<endl;
+        pthread_create(&interact_thread, nullptr, interact_handler, tmp);
     }
 }
 

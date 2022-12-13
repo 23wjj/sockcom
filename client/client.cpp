@@ -59,7 +59,7 @@ public:
     void send_message(string);
     void exitcli();
 private:
-    int msgqid; // identifier of the message queue
+    //int msgqid; // identifier of the message queue
     static void* interact_handler(void*); // entry function for handling connection
 };
 
@@ -67,16 +67,20 @@ client::client(){
     // initialize the socket handler
     socket_fd=-1;
     connection=0;
-
-    // initialize the parameters of message queue for IPC
-    key_t ipc_key = ftok("./",2022);
-    msgqid=msgget(ipc_key, IPC_CREAT|0666);
 }
 
+int msgqid;
+
 void* client::interact_handler(void* sockfd) {
+    // initialize the parameters of message queue for IPC
+    msgqid=msgget(IPC_PRIVATE, IPC_CREAT|0666);
+//    if( msgqid == -1){
+//        perror("msgget\n");
+//        exit(1);
+//    }
+    // cout<<msgqid<<endl;
+
     MSG message;
-    key_t ipc_key = ftok("./",2022);
-    int msqid=msgget(ipc_key,IPC_CREAT|0666);
     int len;
     char buffer[MAXBUFFER];
 
@@ -94,8 +98,7 @@ void* client::interact_handler(void* sockfd) {
         MSG message;
         message.mtype = buffer[0];
         strcpy(message.mtext, buffer + 1);
-        if(message.mtype!=TRANS)
-            msgsnd(msqid, &message, MAXBUFFER, 0);
+        msgsnd(msgqid, &message, MAXBUFFER, 0);
     }
     return nullptr;
 
@@ -206,7 +209,7 @@ void client::get_cli() {
     }
 }
 
-    void client::quit() {
+void client::quit() {
     if(!connection){
         cout<<"[Error]client hasn't connected!\n";
         return;
