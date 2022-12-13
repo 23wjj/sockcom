@@ -127,7 +127,10 @@ void* server::interact_handler(void* arg){
         // clear the buffer
         memset(buffer,0,MaxBuffer);
         // cout<<param->connfd<<" is running!"<<endl;
-        recv(param->connfd, buffer, MaxBuffer, 0);
+        int len=recv(param->connfd, buffer, MaxBuffer, 0);
+        // close this TCP connection
+        if(len==0)
+            break;
         pthread_mutex_lock(&mtx);
         char msg_type = buffer[0];
 
@@ -201,7 +204,13 @@ void* server::interact_handler(void* arg){
         }
         pthread_mutex_unlock(&mtx);
     }
-
+    for(auto ite=cli_list.begin();ite!=cli_list.end();ite++){
+        if(ite->first==param->connfd){
+            cli_list.erase(ite);
+            break;
+        }
+    }
+    return nullptr;
 }
 
 void server::run(){
